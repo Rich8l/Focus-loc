@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta nameviewport" content="width=device-width, initial-scale=1" />
+  <title>Focus Lock — Auto Start</title>
+  <style>
+    :root { --bg:#0b0d10; --fg:#e6e6e6; --muted:#96a0aa; --accent:#4da3ff; }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; margin: 0; background: var(--bg); color: var(--fg); font-family: ui-sans-serif, system-ui; }
+    .center { display: grid; place-items: center; height: 100%; }
+    .card {
+      text-align: center; padding: 2.5rem 2rem; border-radius: 1.25rem;
+      background: #12161b; box-shadow: 0 10px 30px rgba(0,0,0,.45);
+      max-width: 38rem; width: calc(100% - 2rem);
+    }
+    h1 { margin: 0 0 .5rem; font-weight: 700; }
+    p { margin: .25rem 0; color: var(--muted); }
+    .timer {
+      font-variant-numeric: tabular-nums;
+      font-size: clamp(2.6rem, 6vw, 4.5rem);
+      font-weight: 800; margin: 1.25rem 0 .5rem;
+    }
+    .bar { height: .5rem; width: 100%; background: #1b222a; border-radius: 999px; overflow: hidden; margin: 1rem 0 0; }
+    .bar > span {
+      display: block; height: 100%; width: 0%;
+      background: linear-gradient(90deg, var(--accent), #79ffea);
+    }
+    .overlay { position: fixed; inset: 0; display: none; background: rgba(6,8,10,.85); z-index: 9999; pointer-events: auto; }
+    .overlay.active { display: block; }
+    .kbd { background:#0f141a; color:#d9e2ec; padding:.2rem .5rem; border-radius:.5rem; }
+    .hint { font-size: .95rem; color: var(--muted); margin-top: .75rem; }
+  </style>
+</head>
+<body>
+  <div class="center">
+    <div class="card">
+      <h1>Focus Lock (60 seconds)</h1>
+      <p>All input is disabled during the countdown.<br>
+        Emergency exit: hold <span class="kbd">Esc</span> for 2 seconds.</p>
+      <div class="timer" id="timer">01:00</div>
+      <div class="bar"><span id="barFill"></span></div>
+      <p class="hint">(Lock starts automatically)</p>
+    </div>
+  </div>
+
+  <div id="overlay" class="overlay" aria-hidden="true"></div>
+
+  <script>
+    (function () {
+      const LOCK_MS = 60000;
+      const overlay = document.getElementById('overlay');
+      const timerEl = document.getElementById('timer');
+      const barFill = document.getElementById('barFill');
+
+      let endTime = 0, tickId = null, locked = false, escDownAt = null;
+      const ESC_HOLD_MS = 2000;
+
+      function mmss(ms){
+        const s = Math.ceil(ms / 1000);
+        return `${String(Math.floor(s / 60)).padStart(2,'0')}:${String(s % 60).padStart(2,'0')}`;
+      }
+
+      function update(){
+        const left = endTime - Date.now();
+        timerEl.textContent = mmss(left);
+        barFill.style.width = `${100 * (1 - Math.max(left, 0) / LOCK_MS)}%`;
+        if (left <= 0) unlock();
+      }
+
+      function lock(){
+        if (locked) return;
+        locked = true;
+        endTime = Date.now() + LOCK_MS;
+        overlay.classList.add('active');
+        tickId = setInterval(update, 100);
+      }
+
+      function unlock(){
+        if (!locked) return;
+        locked = false;
+        clearInterval(tickId);
+        overlay.classList.remove('active');
+        timerEl.textContent = '01:00';
+        barFill.style.width = '0%';
+      }
+
+      function block(e){
+        if (!locked) return;
+        if (e.key === 'Escape') return;
+        e.preventDefault(); e.stopPropagation();
+      }
+
+      ['click','dblclick','contextmenu',
+       'mousedown','mouseup','touchstart','touchend',
+       'wheel','scroll','keydown','keypress','keyup',
+       'pointerdown','pointerup'
+      ].forEach(evt => document.addEventListener(evt, block, true));
+
+      document.addEventListener('keydown', e=>{
+        if (e.key === 'Escape' && locked) {
+          if (!escDownAt) escDownAt = performance.now();
+          if (performance.now() - escDownAt >= ESC_HOLD_MS) unlock();
+        }
+      });
+      document.addEventListener('keyup', e=>{
+        if (e.key === 'Escape') escDownAt = null;
+      });
+
+      window.onload = lock;
+    })();
+  </script>
+</body>
+</html>
