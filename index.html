@@ -2,69 +2,173 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta nameviewport" content="width=device-width, initial-scale=1" />
-  <title>Focus Lock — Auto Start</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Focus Lock — Auto Device Mode</title>
   <style>
-    :root { --bg:#0b0d10; --fg:#e6e6e6; --muted:#96a0aa; --accent:#4da3ff; }
-    * { box-sizing: border-box; }
-    html, body { height: 100%; margin: 0; background: var(--bg); color: var(--fg); font-family: ui-sans-serif, system-ui; }
-    .center { display: grid; place-items: center; height: 100%; }
-    .card {
-      text-align: center; padding: 2.5rem 2rem; border-radius: 1.25rem;
-      background: #12161b; box-shadow: 0 10px 30px rgba(0,0,0,.45);
-      max-width: 38rem; width: calc(100% - 2rem);
+    :root { --bg:#050608; --fg:#f5f5f5; --muted:#9aa3ad; --accent:#4da3ff; }
+    * { box-sizing:border-box; }
+    html,body{
+      margin:0; padding:0; height:100%;
+      background:var(--bg); color:var(--fg);
+      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
     }
-    h1 { margin: 0 0 .5rem; font-weight: 700; }
-    p { margin: .25rem 0; color: var(--muted); }
-    .timer {
-      font-variant-numeric: tabular-nums;
-      font-size: clamp(2.6rem, 6vw, 4.5rem);
-      font-weight: 800; margin: 1.25rem 0 .5rem;
+    .center{
+      height:100%; display:grid; place-items:center;
     }
-    .bar { height: .5rem; width: 100%; background: #1b222a; border-radius: 999px; overflow: hidden; margin: 1rem 0 0; }
-    .bar > span {
-      display: block; height: 100%; width: 0%;
-      background: linear-gradient(90deg, var(--accent), #79ffea);
+    .card{
+      width:min(90vw,40rem);
+      padding:2.5rem 2rem;
+      border-radius:1.25rem;
+      background:#10141b;
+      box-shadow:0 16px 45px rgba(0,0,0,.65);
+      text-align:center;
     }
-    .overlay { position: fixed; inset: 0; display: none; background: rgba(6,8,10,.85); z-index: 9999; pointer-events: auto; }
-    .overlay.active { display: block; }
-    .kbd { background:#0f141a; color:#d9e2ec; padding:.2rem .5rem; border-radius:.5rem; }
-    .hint { font-size: .95rem; color: var(--muted); margin-top: .75rem; }
+    h1{margin:0 0 .4rem; font-size:1.7rem;}
+    .sub{margin:.1rem 0 .6rem; color:var(--muted); font-size:.95rem;}
+    .mode{margin:.1rem 0 .6rem; font-size:.9rem; color:#cbd2da;}
+    .mode span{font-weight:600;}
+    .timer{
+      margin:1.3rem 0 .2rem;
+      font-size:3rem; font-weight:800;
+      font-variant-numeric:tabular-nums;
+    }
+    .hint{
+      margin-top:.5rem;
+      color:var(--muted);
+      font-size:.9rem;
+    }
+    .kbd{
+      padding:.1rem .4rem;
+      border-radius:.35rem;
+      border:1px solid #223242;
+      background:#151b24;
+      font-size:.85rem;
+    }
+    .bar{
+      margin-top:1rem;
+      width:100%; height:.55rem;
+      border-radius:999px;
+      background:#1c242f;
+      overflow:hidden;
+    }
+    .bar span{
+      display:block; height:100%; width:0%;
+      background:linear-gradient(90deg,#4da3ff,#73ffe3);
+      transition:width .1s linear;
+    }
+    .small{
+      margin-top:.75rem;
+      font-size:.8rem;
+      color:#6c7682;
+    }
+    .overlay{
+      position:fixed; inset:0;
+      background:rgba(0,0,0,.82);
+      z-index:9999;
+      pointer-events:auto;
+      display:none;
+    }
+    .overlay.active{display:block;}
+    .touch-exit-zone{
+      position:fixed;
+      right:0; bottom:0;
+      width:22vw; height:18vh;
+      max-width:120px; max-height:80px;
+      /* invisible but tappable area for long-press exit on touch devices */
+    }
   </style>
 </head>
 <body>
   <div class="center">
     <div class="card">
       <h1>Focus Lock (60 seconds)</h1>
-      <p>All input is disabled during the countdown.<br>
-        Emergency exit: hold <span class="kbd">Esc</span> for 2 seconds.</p>
+      <p class="sub">All input is limited during the countdown.</p>
+      <p class="mode" id="modeInfo">Detecting device type…</p>
       <div class="timer" id="timer">01:00</div>
       <div class="bar"><span id="barFill"></span></div>
-      <p class="hint">(Lock starts automatically)</p>
+      <p class="hint" id="hintDesktop" style="display:none;">
+        Desktop/Laptop mode • Emergency exit: hold <span class="kbd">Esc</span> for 2 seconds.
+      </p>
+      <p class="hint" id="hintTouch" style="display:none;">
+        Touch / TV / Appliance mode • Emergency exit: <span class="kbd">touch &amp; hold</span> bottom-right corner for 3 seconds.
+      </p>
+      <p class="small">(Lock starts automatically when the page loads.)</p>
     </div>
   </div>
 
   <div id="overlay" class="overlay" aria-hidden="true"></div>
+  <div id="touchExitZone" class="touch-exit-zone"></div>
 
   <script>
-    (function () {
-      const LOCK_MS = 60000;
+    (function(){
+      const LOCK_MS = 60_000;
+      const ESC_HOLD_MS = 2_000;
+      const TOUCH_HOLD_MS = 3_000;
+
       const overlay = document.getElementById('overlay');
       const timerEl = document.getElementById('timer');
       const barFill = document.getElementById('barFill');
+      const modeInfo = document.getElementById('modeInfo');
+      const hintDesktop = document.getElementById('hintDesktop');
+      const hintTouch = document.getElementById('hintTouch');
+      const touchExitZone = document.getElementById('touchExitZone');
 
-      let endTime = 0, tickId = null, locked = false, escDownAt = null;
-      const ESC_HOLD_MS = 2000;
+      let locked = false;
+      let endTime = 0;
+      let tickId = null;
 
-      function mmss(ms){
-        const s = Math.ceil(ms / 1000);
-        return `${String(Math.floor(s / 60)).padStart(2,'0')}:${String(s % 60).padStart(2,'0')}`;
+      let escDownAt = null;
+      let touchDownAt = null;
+      let deviceKind = 'unknown';
+
+      function detectDeviceKind(){
+        const ua = (navigator.userAgent || '').toLowerCase();
+        const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+        const tvMatch = /smarttv|tizen|web0s|netcast|hbbtv|appletv|firetv|android tv/.test(ua);
+        const fridgeMatch = /refrigerator|fridge/.test(ua); // fun edge case, mostly WebOS
+
+        if (tvMatch || fridgeMatch) return 'tv';
+        if (hasTouch && /iphone|ipad|ipod|android|mobile|tablet/.test(ua)) return 'touch';
+        if (hasTouch && !/windows/.test(ua) && !/macintosh/.test(ua)) return 'touch';
+        return 'desktop';
       }
 
-      function update(){
-        const left = endTime - Date.now();
-        timerEl.textContent = mmss(left);
-        barFill.style.width = `${100 * (1 - Math.max(left, 0) / LOCK_MS)}%`;
+      function updateModeText(){
+        let label, details;
+        if (deviceKind === 'desktop') {
+          label = 'Mode: Desktop / Laptop';
+          details = 'Keyboard and mouse input are heavily restricted. OS shortcuts may still work.';
+          hintDesktop.style.display = '';
+          hintTouch.style.display = 'none';
+        } else if (deviceKind === 'touch' || deviceKind === 'tv') {
+          label = 'Mode: Touch / TV / Appliance';
+          details = 'Touch, scroll, and taps are blocked over the page, but system gestures (home, swipe-up, etc.) cannot be disabled.';
+          hintDesktop.style.display = 'none';
+          hintTouch.style.display = '';
+        } else {
+          label = 'Mode: Generic Browser';
+          details = 'Basic lock applied. Some inputs may still be handled by the device OS.';
+          hintDesktop.style.display = '';
+          hintTouch.style.display = '';
+        }
+        modeInfo.innerHTML = `<span>${label}</span><br>${details}`;
+      }
+
+      function mmss(ms){
+        ms = Math.max(0, ms);
+        const s = Math.ceil(ms / 1000);
+        const m = Math.floor(s / 60);
+        const r = s % 60;
+        return `${String(m).padStart(2,'0')}:${String(r).padStart(2,'0')}`;
+      }
+
+      function updateTimer(){
+        const now = Date.now();
+        const left = endTime - now;
+        const clamped = Math.max(Math.min(left, LOCK_MS), 0);
+        timerEl.textContent = mmss(clamped);
+        const pct = 100 * (1 - clamped / LOCK_MS);
+        barFill.style.width = `${pct}%`;
         if (left <= 0) unlock();
       }
 
@@ -73,41 +177,78 @@
         locked = true;
         endTime = Date.now() + LOCK_MS;
         overlay.classList.add('active');
-        tickId = setInterval(update, 100);
+        overlay.setAttribute('aria-hidden','false');
+        tickId = setInterval(updateTimer, 100);
+        updateTimer();
       }
 
       function unlock(){
         if (!locked) return;
         locked = false;
         clearInterval(tickId);
+        tickId = null;
         overlay.classList.remove('active');
+        overlay.setAttribute('aria-hidden','true');
         timerEl.textContent = '01:00';
         barFill.style.width = '0%';
       }
 
-      function block(e){
+      // Block events while locked (best effort; OS-level gestures still win)
+      function blockEvent(e){
         if (!locked) return;
-        if (e.key === 'Escape') return;
-        e.preventDefault(); e.stopPropagation();
+        if (deviceKind === 'desktop' && e.type === 'keydown' && e.key === 'Escape') return;
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
       }
 
-      ['click','dblclick','contextmenu',
-       'mousedown','mouseup','touchstart','touchend',
-       'wheel','scroll','keydown','keypress','keyup',
-       'pointerdown','pointerup'
-      ].forEach(evt => document.addEventListener(evt, block, true));
+      const blockedEvents = [
+        'click','dblclick','contextmenu',
+        'mousedown','mouseup','mousemove',
+        'touchstart','touchend','touchmove','touchcancel',
+        'wheel','scroll',
+        'keydown','keypress','keyup',
+        'pointerdown','pointerup','pointermove'
+      ];
+      blockedEvents.forEach(evt=>{
+        document.addEventListener(evt, blockEvent, true);
+      });
 
+      // Desktop panic: hold Esc
       document.addEventListener('keydown', e=>{
-        if (e.key === 'Escape' && locked) {
-          if (!escDownAt) escDownAt = performance.now();
+        if (!locked) return;
+        if (deviceKind !== 'desktop') return;
+        if (e.key === 'Escape') {
+          if (escDownAt == null) escDownAt = performance.now();
           if (performance.now() - escDownAt >= ESC_HOLD_MS) unlock();
         }
-      });
+      }, true);
       document.addEventListener('keyup', e=>{
         if (e.key === 'Escape') escDownAt = null;
-      });
+      }, true);
 
-      window.onload = lock;
+      // Touch panic: long press in bottom-right
+      function onTouchStart(e){
+        if (!locked) return;
+        if (e.target !== touchExitZone) return;
+        touchDownAt = performance.now();
+      }
+      function onTouchEnd(e){
+        if (!locked) return;
+        if (touchDownAt == null) return;
+        const held = performance.now() - touchDownAt;
+        touchDownAt = null;
+        if (held >= TOUCH_HOLD_MS) unlock();
+      }
+      touchExitZone.addEventListener('touchstart', onTouchStart, {passive:false});
+      touchExitZone.addEventListener('touchend', onTouchEnd, {passive:false});
+      touchExitZone.addEventListener('touchcancel', ()=>{ touchDownAt = null; }, {passive:true});
+
+      window.addEventListener('load', ()=>{
+        deviceKind = detectDeviceKind();
+        updateModeText();
+        lock(); // start automatically
+      });
     })();
   </script>
 </body>
