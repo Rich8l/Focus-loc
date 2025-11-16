@@ -3,155 +3,545 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Focus Lock — Auto Device Mode</title>
+  <title>Prank Lock Lab</title>
   <style>
-    :root { --bg:#050608; --fg:#f5f5f5; --muted:#9aa3ad; --accent:#4da3ff; }
-    * { box-sizing:border-box; }
-    html,body{
-      margin:0; padding:0; height:100%;
-      background:var(--bg); color:var(--fg);
-      font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    :root {
+      --bg: #050608;
+      --fg: #f5f5f5;
+      --muted: #96a0aa;
+      --accent: #4da3ff;
+      --danger: #ff4d6a;
     }
-    .center{
-      height:100%; display:grid; place-items:center;
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: radial-gradient(circle at top, #111827 0, #020617 45%, #000 100%);
+      color: var(--fg);
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
     }
-    .card{
-      width:min(90vw,40rem);
-      padding:2.5rem 2rem;
-      border-radius:1.25rem;
-      background:#10141b;
-      box-shadow:0 16px 45px rgba(0,0,0,.65);
-      text-align:center;
+    body {
+      display: grid;
+      place-items: center;
+      padding: 1rem;
     }
-    h1{margin:0 0 .4rem; font-size:1.7rem;}
-    .sub{margin:.1rem 0 .6rem; color:var(--muted); font-size:.95rem;}
-    .mode{margin:.1rem 0 .6rem; font-size:.9rem; color:#cbd2da;}
-    .mode span{font-weight:600;}
-    .timer{
-      margin:1.3rem 0 .2rem;
-      font-size:3rem; font-weight:800;
-      font-variant-numeric:tabular-nums;
+    .card {
+      width: min(46rem, 100%);
+      background: rgba(10, 16, 28, .95);
+      border-radius: 1.3rem;
+      box-shadow: 0 22px 50px rgba(0,0,0,.7), 0 0 0 1px rgba(148,163,184,.08);
+      padding: 2.2rem 1.8rem 2rem;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
     }
-    .hint{
-      margin-top:.5rem;
-      color:var(--muted);
-      font-size:.9rem;
+    h1 {
+      margin: 0 0 .3rem;
+      font-size: clamp(1.7rem, 3vw, 2rem);
+      letter-spacing: .03em;
     }
-    .kbd{
-      padding:.1rem .4rem;
-      border-radius:.35rem;
-      border:1px solid #223242;
-      background:#151b24;
-      font-size:.85rem;
+    .sub {
+      margin: 0 0 1.4rem;
+      color: var(--muted);
+      font-size: .95rem;
     }
-    .bar{
-      margin-top:1rem;
-      width:100%; height:.55rem;
-      border-radius:999px;
-      background:#1c242f;
-      overflow:hidden;
+    .modes {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+      gap: .75rem;
+      margin-bottom: 1.5rem;
     }
-    .bar span{
-      display:block; height:100%; width:0%;
-      background:linear-gradient(90deg,#4da3ff,#73ffe3);
-      transition:width .1s linear;
+    button.mode-btn {
+      appearance: none;
+      border: 0;
+      border-radius: .9rem;
+      padding: .8rem .9rem;
+      background: #0b1220;
+      color: #e5e7eb;
+      font-weight: 600;
+      font-size: .9rem;
+      cursor: pointer;
+      text-align: left;
+      position: relative;
+      overflow: hidden;
     }
-    .small{
-      margin-top:.75rem;
-      font-size:.8rem;
-      color:#6c7682;
+    button.mode-btn span.label {
+      display: block;
     }
-    .overlay{
-      position:fixed; inset:0;
-      background:rgba(0,0,0,.82);
-      z-index:9999;
-      pointer-events:auto;
-      display:none;
+    button.mode-btn span.desc {
+      display: block;
+      margin-top: .15rem;
+      font-size: .78rem;
+      color: var(--muted);
     }
-    .overlay.active{display:block;}
-    .touch-exit-zone{
-      position:fixed;
-      right:0; bottom:0;
-      width:22vw; height:18vh;
-      max-width:120px; max-height:80px;
-      /* invisible but tappable area for long-press exit on touch devices */
+    button.mode-btn::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at top left, rgba(148,163,253,.35), transparent 55%);
+      opacity: 0;
+      transition: opacity .15s ease-out;
+      pointer-events: none;
+    }
+    button.mode-btn:hover::before,
+    button.mode-btn:focus-visible::before {
+      opacity: 1;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: .25rem;
+      border-radius: 999px;
+      padding: .15rem .7rem;
+      font-size: .7rem;
+      background: rgba(15,118,110,.2);
+      color: #5eead4;
+      margin-bottom: .4rem;
+    }
+    .foot {
+      margin-top: .4rem;
+      color: var(--muted);
+      font-size: .78rem;
+    }
+    .kbd {
+      display: inline-block;
+      padding: .1rem .45rem;
+      border-radius: .4rem;
+      border: 1px solid rgba(148,163,184,.6);
+      font-size: .75rem;
+      background: rgba(15,23,42,.85);
+    }
+
+    /* Overlay */
+    .overlay {
+      position: fixed;
+      inset: 0;
+      background: #000;
+      color: #f9fafb;
+      display: none;
+      z-index: 9999;
+      pointer-events: auto;
+    }
+    .overlay.active {
+      display: block;
+    }
+    .scene-root {
+      position: absolute;
+      inset: 0;
+      display: grid;
+      place-items: center;
+    }
+    .scene-inner {
+      text-align: center;
+      padding: 1.5rem;
+      max-width: 40rem;
+      margin: 0 auto;
+    }
+    .scene-title {
+      font-size: 1.5rem;
+      margin-bottom: .5rem;
+    }
+    .scene-text {
+      font-size: .95rem;
+      color: #cbd5f5;
+      margin-bottom: 1rem;
+    }
+    .scene-hint {
+      font-size: .78rem;
+      color: #9ca3af;
+      margin-top: 1.5rem;
+    }
+
+    /* 1. Fake freeze */
+    .scene-freeze {
+      background: #020617;
+      color: #e5e7eb;
+    }
+    .freeze-bar {
+      width: 60%;
+      max-width: 18rem;
+      height: .4rem;
+      margin: 1.1rem auto 0;
+      border-radius: 999px;
+      background: rgba(148,163,184,.3);
+      overflow: hidden;
+      position: relative;
+    }
+    .freeze-bar::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      width: 45%;
+      background: linear-gradient(90deg,#38bdf8,#a855f7);
+      animation: freezeScan 2.1s ease-in-out infinite;
+    }
+    @keyframes freezeScan {
+      0% { transform: translateX(-60%); }
+      50% { transform: translateX(40%); }
+      100% { transform: translateX(120%); }
+    }
+
+    /* 2. Fake crash / glitch */
+    .scene-glitch {
+      background: #020617;
+      overflow: hidden;
+    }
+    .glitch-text {
+      font-size: 2.3rem;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: .2em;
+      position: relative;
+      display: inline-block;
+    }
+    .glitch-text::before,
+    .glitch-text::after {
+      content: attr(data-text);
+      position: absolute;
+      inset: 0;
+      mix-blend-mode: screen;
+    }
+    .glitch-text::before {
+      color: #22d3ee;
+      transform: translate(-2px, -1px);
+      clip-path: polygon(0 0, 100% 0, 100% 40%, 0 60%);
+      animation: glitch1 1.5s infinite linear alternate-reverse;
+    }
+    .glitch-text::after {
+      color: #fb7185;
+      transform: translate(2px, 1px);
+      clip-path: polygon(0 40%, 100% 30%, 100% 100%, 0 100%);
+      animation: glitch2 1.8s infinite linear alternate-reverse;
+    }
+    @keyframes glitch1 {
+      0% { transform: translate(-2px, -1px); }
+      50% { transform: translate(2px, 1px); }
+      100% { transform: translate(-3px, .5px); }
+    }
+    @keyframes glitch2 {
+      0% { transform: translate(2px, 1px); }
+      50% { transform: translate(-1px, -2px); }
+      100% { transform: translate(1px, 3px); }
+    }
+
+    /* 3. Fake iOS shutdown */
+    .scene-ios-off {
+      background: #000;
+    }
+    .spinner-ios {
+      width: 40px;
+      height: 40px;
+      border-radius: 999px;
+      border: 3px solid rgba(148,163,184,.3);
+      border-top-color: #e5e7eb;
+      margin: 1.3rem auto .6rem;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* 4. Fake Android boot */
+    .scene-android {
+      background: radial-gradient(circle at center, #111827 0, #020617 45%, #000 100%);
+    }
+    .android-logo {
+      width: 72px;
+      height: 72px;
+      border-radius: 20px;
+      border: 3px solid #22c55e;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 1rem;
+      position: relative;
+    }
+    .android-logo::before,
+    .android-logo::after {
+      content: "";
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      border: 2px solid #22c55e;
+      top: -10px;
+    }
+    .android-logo::before { left: 12px; }
+    .android-logo::after { right: 12px; }
+    .android-dot-line {
+      width: 60%;
+      max-width: 16rem;
+      margin: 1.2rem auto 0;
+      display: flex;
+      justify-content: center;
+      gap: .45rem;
+    }
+    .android-dot-line span {
+      width: 6px;
+      height: 6px;
+      border-radius: 999px;
+      background: #22c55e;
+      opacity: .25;
+      animation: androidDots 1.2s infinite ease-in-out;
+    }
+    .android-dot-line span:nth-child(2) { animation-delay: .15s; }
+    .android-dot-line span:nth-child(3) { animation-delay: .3s; }
+    .android-dot-line span:nth-child(4) { animation-delay: .45s; }
+    @keyframes androidDots {
+      0%, 60%, 100% { opacity: .25; transform: translateY(0); }
+      30% { opacity: 1; transform: translateY(-4px); }
+    }
+
+    /* 5. Fake critical error */
+    .scene-error {
+      background: radial-gradient(circle at top, #7f1d1d 0, #450a0a 35%, #000 100%);
+    }
+    .error-title {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: #fee2e2;
+      margin-bottom: .75rem;
+    }
+    .error-box {
+      display: inline-block;
+      padding: .9rem 1.1rem;
+      border-radius: .6rem;
+      border: 1px dashed rgba(254,226,226,.5);
+      background: rgba(127,29,29,.55);
+      color: #fee2e2;
+      font-size: .86rem;
+      text-align: left;
+      max-width: 28rem;
+    }
+    .error-countdown {
+      margin-top: 1rem;
+      font-size: .9rem;
+      color: #fecaca;
+    }
+
+    /* 6. Focus lock */
+    .scene-focus {
+      background: #020617;
+    }
+    .focus-timer {
+      font-size: 3rem;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      margin: 1.1rem 0 .4rem;
+    }
+    .focus-bar {
+      width: 70%;
+      max-width: 20rem;
+      height: .55rem;
+      border-radius: 999px;
+      background: rgba(148,163,184,.3);
+      overflow: hidden;
+      margin: 0 auto;
+    }
+    .focus-bar span {
+      display: block;
+      height: 100%;
+      width: 0%;
+      background: linear-gradient(90deg,#4da3ff,#22c55e);
+    }
+
+    /* touch exit zone */
+    .touch-exit {
+      position: fixed;
+      right: 0;
+      bottom: 0;
+      width: 22vw;
+      height: 18vh;
+      max-width: 120px;
+      max-height: 80px;
+      z-index: 10000;
     }
   </style>
 </head>
 <body>
-  <div class="center">
-    <div class="card">
-      <h1>Focus Lock (60 seconds)</h1>
-      <p class="sub">All input is limited during the countdown.</p>
-      <p class="mode" id="modeInfo">Detecting device type…</p>
-      <div class="timer" id="timer">01:00</div>
-      <div class="bar"><span id="barFill"></span></div>
-      <p class="hint" id="hintDesktop" style="display:none;">
-        Desktop/Laptop mode • Emergency exit: hold <span class="kbd">Esc</span> for 2 seconds.
-      </p>
-      <p class="hint" id="hintTouch" style="display:none;">
-        Touch / TV / Appliance mode • Emergency exit: <span class="kbd">touch &amp; hold</span> bottom-right corner for 3 seconds.
-      </p>
-      <p class="small">(Lock starts automatically when the page loads.)</p>
+  <div class="card">
+    <div class="badge">
+      🔒 Prank Lock Lab
     </div>
+    <h1>Visual Lock &amp; Crash Simulator</h1>
+    <p class="sub">
+      Safe, fake “crash / lock” effects inside one web page.<br>
+      <strong>No real damage, just drama.</strong>
+    </p>
+
+    <div class="modes">
+      <button class="mode-btn" data-mode="freeze">
+        <span class="label">1. Fake Freeze Screen</span>
+        <span class="desc">Dim screen, pretend “not responding”.</span>
+      </button>
+      <button class="mode-btn" data-mode="glitch">
+        <span class="label">2. Fake Crash / Glitch</span>
+        <span class="desc">Glitchy text like a corrupted system.</span>
+      </button>
+      <button class="mode-btn" data-mode="ios-off">
+        <span class="label">3. Fake iOS Shutdown</span>
+        <span class="desc">Black screen + spinning wheel.</span>
+      </button>
+      <button class="mode-btn" data-mode="android">
+        <span class="label">4. Fake Android Boot</span>
+        <span class="desc">Android-style boot / loading dots.</span>
+      </button>
+      <button class="mode-btn" data-mode="error">
+        <span class="label">5. Fake Critical Error</span>
+        <span class="desc">“Critical failure” with countdown.</span>
+      </button>
+      <button class="mode-btn" data-mode="focus">
+        <span class="label">6. Focus Lock (60s)</span>
+        <span class="desc">Timer-style screen lock simulator.</span>
+      </button>
+    </div>
+
+    <p class="foot">
+      Exit any effect with <span class="kbd">Esc</span>
+      or <span class="kbd">long-press bottom-right</span>.
+      Browser tabs / home button will always still work (OS protection).
+    </p>
   </div>
 
-  <div id="overlay" class="overlay" aria-hidden="true"></div>
-  <div id="touchExitZone" class="touch-exit-zone"></div>
+  <!-- Overlay -->
+  <div id="overlay" class="overlay" aria-hidden="true">
+    <div class="scene-root">
+      <div id="sceneFreeze" class="scene-inner scene-freeze" style="display:none;">
+        <div class="scene-title">System not responding…</div>
+        <div class="scene-text">
+          The current app appears to be frozen.<br>
+          Please wait while the system attempts to recover.
+        </div>
+        <div class="freeze-bar"></div>
+        <div class="scene-hint">
+          Visual only. Device is safe. Exit with <span class="kbd">Esc</span> or long-press bottom-right.
+        </div>
+      </div>
+
+      <div id="sceneGlitch" class="scene-inner scene-glitch" style="display:none;">
+        <div class="glitch-text" data-text="SYSTEM ERROR">SYSTEM ERROR</div>
+        <div class="scene-text">
+          Rendering pipeline unstable.  
+          Display output may appear distorted.
+        </div>
+        <div class="scene-hint">
+          Visual glitch simulation. Exit with <span class="kbd">Esc</span> or long-press bottom-right.
+        </div>
+      </div>
+
+      <div id="sceneIosOff" class="scene-inner scene-ios-off" style="display:none;">
+        <div class="spinner-ios"></div>
+        <div class="scene-title">Shutting down…</div>
+        <div class="scene-text">
+          Screen will appear dark during simulated power-off.
+        </div>
+        <div class="scene-hint">
+          This is a visual shutdown effect only.<br>
+          Exit with <span class="kbd">Esc</span> or long-press bottom-right.
+        </div>
+      </div>
+
+      <div id="sceneAndroid" class="scene-inner scene-android" style="display:none;">
+        <div class="android-logo">
+          <span style="font-size:1.9rem; color:#22c55e;">🤖</span>
+        </div>
+        <div class="scene-title">Starting Android…</div>
+        <div class="scene-text">
+          Simulated boot sequence. This does not modify your device.
+        </div>
+        <div class="android-dot-line">
+          <span></span><span></span><span></span><span></span>
+        </div>
+        <div class="scene-hint">
+          Visual boot effect only. Exit with <span class="kbd">Esc</span> or long-press bottom-right.
+        </div>
+      </div>
+
+      <div id="sceneError" class="scene-inner scene-error" style="display:none;">
+        <div class="error-title">Critical Error Detected</div>
+        <div class="error-box">
+          <strong>DETAILS</strong><br>
+          • Simulated kernel panic / fatal exception<br>
+          • No real files are being modified<br>
+          • Used for demonstration &amp; prank purposes only
+        </div>
+        <div id="errorCountdown" class="error-countdown">
+          Automatic visual “recovery” in 15 seconds…
+        </div>
+        <div class="scene-hint">
+          After the countdown, you’ll return to the main menu automatically.
+        </div>
+      </div>
+
+      <div id="sceneFocus" class="scene-inner scene-focus" style="display:none;">
+        <div class="scene-title">Focus Lock — 60 Second Timer</div>
+        <div class="scene-text">
+          Inputs over this page are blocked while the timer runs.
+          Browser / OS controls will still work.
+        </div>
+        <div id="focusTime" class="focus-timer">01:00</div>
+        <div class="focus-bar"><span id="focusBarFill"></span></div>
+        <div class="scene-hint">
+          Visual lock only. Exit early with <span class="kbd">Esc</span> or long-press bottom-right.
+        </div>
+      </div>
+    </div>
+    <div id="touchExitZone" class="touch-exit"></div>
+  </div>
 
   <script>
     (function(){
-      const LOCK_MS = 60_000;
-      const ESC_HOLD_MS = 2_000;
-      const TOUCH_HOLD_MS = 3_000;
-
       const overlay = document.getElementById('overlay');
-      const timerEl = document.getElementById('timer');
-      const barFill = document.getElementById('barFill');
-      const modeInfo = document.getElementById('modeInfo');
-      const hintDesktop = document.getElementById('hintDesktop');
-      const hintTouch = document.getElementById('hintTouch');
+      const scenes = {
+        freeze: document.getElementById('sceneFreeze'),
+        glitch: document.getElementById('sceneGlitch'),
+        'ios-off': document.getElementById('sceneIosOff'),
+        android: document.getElementById('sceneAndroid'),
+        error: document.getElementById('sceneError'),
+        focus: document.getElementById('sceneFocus')
+      };
+      const errorCountdownEl = document.getElementById('errorCountdown');
+      const focusTimeEl = document.getElementById('focusTime');
+      const focusBarFill = document.getElementById('focusBarFill');
       const touchExitZone = document.getElementById('touchExitZone');
 
-      let locked = false;
-      let endTime = 0;
+      let activeMode = null;
       let tickId = null;
-
       let escDownAt = null;
       let touchDownAt = null;
-      let deviceKind = 'unknown';
 
-      function detectDeviceKind(){
-        const ua = (navigator.userAgent || '').toLowerCase();
-        const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-        const tvMatch = /smarttv|tizen|web0s|netcast|hbbtv|appletv|firetv|android tv/.test(ua);
-        const fridgeMatch = /refrigerator|fridge/.test(ua); // fun edge case, mostly WebOS
+      const FOCUS_MS = 60_000;
+      const ERROR_MS = 15_000;
+      const ESC_HOLD_MS = 2000;
+      const TOUCH_HOLD_MS = 2500;
 
-        if (tvMatch || fridgeMatch) return 'tv';
-        if (hasTouch && /iphone|ipad|ipod|android|mobile|tablet/.test(ua)) return 'touch';
-        if (hasTouch && !/windows/.test(ua) && !/macintosh/.test(ua)) return 'touch';
-        return 'desktop';
+      function hideAllScenes(){
+        Object.values(scenes).forEach(el => { el.style.display = 'none'; });
       }
 
-      function updateModeText(){
-        let label, details;
-        if (deviceKind === 'desktop') {
-          label = 'Mode: Desktop / Laptop';
-          details = 'Keyboard and mouse input are heavily restricted. OS shortcuts may still work.';
-          hintDesktop.style.display = '';
-          hintTouch.style.display = 'none';
-        } else if (deviceKind === 'touch' || deviceKind === 'tv') {
-          label = 'Mode: Touch / TV / Appliance';
-          details = 'Touch, scroll, and taps are blocked over the page, but system gestures (home, swipe-up, etc.) cannot be disabled.';
-          hintDesktop.style.display = 'none';
-          hintTouch.style.display = '';
-        } else {
-          label = 'Mode: Generic Browser';
-          details = 'Basic lock applied. Some inputs may still be handled by the device OS.';
-          hintDesktop.style.display = '';
-          hintTouch.style.display = '';
+      function openOverlay(mode){
+        activeMode = mode;
+        hideAllScenes();
+        if (scenes[mode]) scenes[mode].style.display = 'block';
+        overlay.classList.add('active');
+        overlay.setAttribute('aria-hidden','false');
+        startMode(mode);
+      }
+
+      function closeOverlay(){
+        activeMode = null;
+        overlay.classList.remove('active');
+        overlay.setAttribute('aria-hidden','true');
+        hideAllScenes();
+        stopTick();
+      }
+
+      function stopTick(){
+        if (tickId) {
+          clearInterval(tickId);
+          tickId = null;
         }
-        modeInfo.innerHTML = `<span>${label}</span><br>${details}`;
       }
 
       function mmss(ms){
@@ -162,93 +552,94 @@
         return `${String(m).padStart(2,'0')}:${String(r).padStart(2,'0')}`;
       }
 
-      function updateTimer(){
-        const now = Date.now();
-        const left = endTime - now;
-        const clamped = Math.max(Math.min(left, LOCK_MS), 0);
-        timerEl.textContent = mmss(clamped);
-        const pct = 100 * (1 - clamped / LOCK_MS);
-        barFill.style.width = `${pct}%`;
-        if (left <= 0) unlock();
+      function startMode(mode){
+        stopTick();
+        if (mode === 'error') {
+          const end = Date.now() + ERROR_MS;
+          tickId = setInterval(() => {
+            const left = end - Date.now();
+            if (left <= 0) {
+              errorCountdownEl.textContent = "Visual recovery complete. Returning to menu…";
+              stopTick();
+              setTimeout(closeOverlay, 1500);
+            } else {
+              errorCountdownEl.textContent =
+                "Automatic visual “recovery” in " + Math.ceil(left/1000) + " seconds…";
+            }
+          }, 200);
+        } else if (mode === 'focus') {
+          const end = Date.now() + FOCUS_MS;
+          tickId = setInterval(() => {
+            const left = end - Date.now();
+            if (left <= 0) {
+              focusTimeEl.textContent = "00:00";
+              focusBarFill.style.width = "100%";
+              stopTick();
+              setTimeout(closeOverlay, 1200);
+            } else {
+              focusTimeEl.textContent = mmss(left);
+              const pct = 100 * (1 - Math.max(Math.min(left, FOCUS_MS),0) / FOCUS_MS);
+              focusBarFill.style.width = pct + "%";
+            }
+          }, 120);
+        }
       }
 
-      function lock(){
-        if (locked) return;
-        locked = true;
-        endTime = Date.now() + LOCK_MS;
-        overlay.classList.add('active');
-        overlay.setAttribute('aria-hidden','false');
-        tickId = setInterval(updateTimer, 100);
-        updateTimer();
-      }
+      // Button handlers
+      document.querySelectorAll('.mode-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const mode = btn.getAttribute('data-mode');
+          openOverlay(mode);
+        });
+      });
 
-      function unlock(){
-        if (!locked) return;
-        locked = false;
-        clearInterval(tickId);
-        tickId = null;
-        overlay.classList.remove('active');
-        overlay.setAttribute('aria-hidden','true');
-        timerEl.textContent = '01:00';
-        barFill.style.width = '0%';
-      }
-
-      // Block events while locked (best effort; OS-level gestures still win)
-      function blockEvent(e){
-        if (!locked) return;
-        if (deviceKind === 'desktop' && e.type === 'keydown' && e.key === 'Escape') return;
-        e.preventDefault();
-        e.stopPropagation();
-        return false;
-      }
-
-      const blockedEvents = [
+      // Block most events over overlay (visual only)
+      const blockEvents = [
         'click','dblclick','contextmenu',
         'mousedown','mouseup','mousemove',
         'touchstart','touchend','touchmove','touchcancel',
-        'wheel','scroll',
-        'keydown','keypress','keyup',
-        'pointerdown','pointerup','pointermove'
+        'wheel','scroll','pointerdown','pointerup','pointermove'
       ];
-      blockedEvents.forEach(evt=>{
-        document.addEventListener(evt, blockEvent, true);
+      blockEvents.forEach(evt => {
+        overlay.addEventListener(evt, e => {
+          if (!overlay.classList.contains('active')) return;
+          e.preventDefault();
+          e.stopPropagation();
+          return false;
+        }, true);
       });
 
-      // Desktop panic: hold Esc
-      document.addEventListener('keydown', e=>{
-        if (!locked) return;
-        if (deviceKind !== 'desktop') return;
+      // Escape via Esc key
+      document.addEventListener('keydown', e => {
+        if (!overlay.classList.contains('active')) return;
         if (e.key === 'Escape') {
           if (escDownAt == null) escDownAt = performance.now();
-          if (performance.now() - escDownAt >= ESC_HOLD_MS) unlock();
+          if (performance.now() - escDownAt >= ESC_HOLD_MS) {
+            closeOverlay();
+          }
         }
       }, true);
-      document.addEventListener('keyup', e=>{
+      document.addEventListener('keyup', e => {
         if (e.key === 'Escape') escDownAt = null;
       }, true);
 
-      // Touch panic: long press in bottom-right
-      function onTouchStart(e){
-        if (!locked) return;
-        if (e.target !== touchExitZone) return;
+      // Escape via long-press bottom-right
+      touchExitZone.addEventListener('touchstart', () => {
+        if (!overlay.classList.contains('active')) return;
         touchDownAt = performance.now();
-      }
-      function onTouchEnd(e){
-        if (!locked) return;
+      }, {passive:true});
+      touchExitZone.addEventListener('touchend', () => {
+        if (!overlay.classList.contains('active')) return;
         if (touchDownAt == null) return;
         const held = performance.now() - touchDownAt;
         touchDownAt = null;
-        if (held >= TOUCH_HOLD_MS) unlock();
-      }
-      touchExitZone.addEventListener('touchstart', onTouchStart, {passive:false});
-      touchExitZone.addEventListener('touchend', onTouchEnd, {passive:false});
-      touchExitZone.addEventListener('touchcancel', ()=>{ touchDownAt = null; }, {passive:true});
-
-      window.addEventListener('load', ()=>{
-        deviceKind = detectDeviceKind();
-        updateModeText();
-        lock(); // start automatically
-      });
+        if (held >= TOUCH_HOLD_MS) {
+          closeOverlay();
+        }
+      }, {passive:true});
+      touchExitZone.addEventListener('touchcancel', () => {
+        touchDownAt = null;
+      }, {passive:true});
     })();
   </script>
 </body>
